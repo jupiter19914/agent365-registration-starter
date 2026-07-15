@@ -1,0 +1,17 @@
+# Core agent framework
+langchain>=0.3.0
+langgraph>=0.2.0
+langchain-azure-ai>=0.1.0
+
+# Azure identity (Managed Identity + fmi_path token exchange)
+azure-identity>=1.17.0
+httpx>=0.27.0
+
+# Microsoft Agent 365 SDK — observability & governance
+microsoft-agents-a365-observability-core>=1.0.0
+microsoft-agents-a365-observability-extensions-langchain>=1.0.0
+microsoft-agents-a365-runtime>=1.0.0
+
+# Web framework (choose one)
+fastapi>=0.115.0
+uvicorn>=0.30.0

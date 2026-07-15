@@ -1,0 +1,26 @@
+{
+  "$schema": "https://aka.ms/json-schemas/copilot/plugin/v2.2/schema.json",
+  "schema_version": "v2.2",
+  "name_for_human": "My LangChain Agent",
+  "description_for_human": "Replace with a user-facing description.",
+  "description_for_model": "Replace with instructions for the LLM on when and how to use this plugin.",
+  "namespace": "my_agent",
+  "functions": [
+    {
+      "name": "processMessage",
+      "description": "Send a user message to the agent and receive a response."
+    }
+  ],
+  "runtimes": [
+    {
+      "type": "OpenApi",
+      "auth": {
+        "type": "OAuthPluginVault"
+      },
+      "spec": {
+        "url": "https://your-app-service.azurewebsites.net/openapi.json"
+      },
+      "run_for_functions": ["processMessage"]
+    }
+  ]
+}

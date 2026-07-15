@@ -1,0 +1,20 @@
+{
+  "$schema": "https://aka.ms/json-schemas/copilot/declarative-agent/v1.7/schema.json",
+  "version": "v1.7",
+  "name": "My LangChain Agent",
+  "description": "Replace with your agent's description. This text helps M365 Copilot understand when to route to your agent.",
+  "instructions": "You are a helpful assistant. Replace these instructions with your agent's system prompt and behavioral guidelines.",
+  "conversation_starters": [
+    {
+      "title": "Get Started",
+      "text": "What can you help me with?"
+    }
+  ],
+  "capabilities": [
+    {
+      "name": "actions",
+      "id": "agentActions",
+      "file": "apiPlugin.json"
+    }
+  ]
+}
