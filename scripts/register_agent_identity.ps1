@@ -43,19 +43,101 @@ Write-Host "Agent Identity App ID: $AgentAppId"
 az ad sp create --id $AgentAppId --query id -o tsv | Out-Null
 
 Write-Host ""
-Write-Host "=== Step 3: Create Federated Identity Credential (FIC) ===" -ForegroundColor Cyan
+Write-Host "=== Step 3: Configure Blueprint for Agent 365 ===" -ForegroundColor Cyan
+Write-Host "Setting identifier URI and exposing API scope..."
+
+# Set identifier URI (required for Agent 365 to recognize the Blueprint)
+az ad app update --id $BlueprintAppId --identifier-uris "api://$BlueprintAppId"
+
+# Generate a scope ID
+$ScopeId = [guid]::NewGuid().ToString()
+
+# Get Blueprint object ID for Graph calls
+$BlueprintObjectId = az ad app show --id $BlueprintAppId --query id -o tsv
+
+# Expose API scope and add Agent 365 tags
+$BlueprintPatch = @{
+    api = @{
+        oauth2PermissionScopes = @(@{
+            adminConsentDescription = "Allow Agent 365 to access this blueprint"
+            adminConsentDisplayName = "Access as Agent"
+            id = $ScopeId
+            isEnabled = $true
+            type = "Admin"
+            value = "access_as_agent"
+        })
+    }
+    tags = @("WindowsAzureActiveDirectoryIntegratedApp", "M365Agent")
+} | ConvertTo-Json -Depth 4 -Compress
+
+az rest --method PATCH `
+    --uri "https://graph.microsoft.com/v1.0/applications/$BlueprintObjectId" `
+    --headers "Content-Type=application/json" `
+    --body $BlueprintPatch
+
+Write-Host "Blueprint configured with identifier URI and Agent 365 tags"
+
+Write-Host ""
+Write-Host "=== Step 4: Configure Agent Identity for Agent 365 ===" -ForegroundColor Cyan
+
+# Set identifier URI on Agent Identity
+az ad app update --id $AgentAppId --identifier-uris "api://$AgentAppId"
+
+# Get Agent Identity object ID
+$AgentObjectId = az ad app show --id $AgentAppId --query id -o tsv
+
+# Tag as Agent Identity and pre-authorize the Blueprint
+$AgentPatch = @{
+    tags = @("WindowsAzureActiveDirectoryIntegratedApp", "M365AgentIdentity")
+    api = @{
+        preAuthorizedApplications = @(@{
+            appId = $BlueprintAppId
+            delegatedPermissionIds = @($ScopeId)
+        })
+    }
+} | ConvertTo-Json -Depth 4 -Compress
+
+az rest --method PATCH `
+    --uri "https://graph.microsoft.com/v1.0/applications/$AgentObjectId" `
+    --headers "Content-Type=application/json" `
+    --body $AgentPatch
+
+# Add Microsoft Agent Service permission (AgentSession.ReadWrite.All)
+Write-Host "Adding Microsoft Agent Service API permission..."
+try {
+    az ad app permission add --id $AgentAppId `
+        --api "48ac35b8-9aa8-4d74-927d-1f4a14a0b239" `
+        --api-permissions "bf512614-4309-43bc-a7b5-a3b3460e4a4b=Scope"
+} catch {
+    Write-Host "  (Note: If Microsoft Agent Service is not in your tenant," -ForegroundColor Yellow
+    Write-Host "   add AgentSession.ReadWrite.All manually via Portal > API Permissions)" -ForegroundColor Yellow
+}
+
+Write-Host "Agent Identity configured with tags and Blueprint pre-authorization"
+
+Write-Host ""
+Write-Host "=== Step 5: Create Federated Identity Credential (FIC) ===" -ForegroundColor Cyan
 
 $FicBody = @{
     name        = "$AgentName-fic"
     issuer      = "https://login.microsoftonline.com/$TenantId/v2.0"
     subject     = $MiObjectId
-    audiences   = @("api://AzureADTokenExchange")
-    description = "FIC binding App Service MI to $BlueprintName"
+    audiences   = @("api://$BlueprintAppId")
+    description = "FIC binding MI to $BlueprintName for Agent 365"
 } | ConvertTo-Json -Compress
 
 az ad app federated-credential create `
     --id $BlueprintAppId `
     --parameters $FicBody
+
+Write-Host ""
+Write-Host "=== Step 6: Admin Consent ===" -ForegroundColor Cyan
+Write-Host "Granting admin consent for Agent Identity permissions..."
+try {
+    az ad app permission admin-consent --id $AgentAppId
+} catch {
+    Write-Host "  (Note: Admin consent may require Global Admin. Grant manually if needed.)" -ForegroundColor Yellow
+}
 
 Write-Host ""
 Write-Host "=== Registration Complete ===" -ForegroundColor Green
@@ -69,3 +151,8 @@ Write-Host "For local dev, create a Blueprint client secret:"
 Write-Host "  az ad app credential reset --id $BlueprintAppId --display-name local-dev"
 Write-Host ""
 Write-Host "For manifest, replace {{AGENT_IDENTITY_APP_ID}} with: $AgentAppId"
+Write-Host ""
+Write-Host "IMPORTANT: Verify in Azure Portal:" -ForegroundColor Yellow
+Write-Host "  1. App Registrations > $BlueprintName > should show 'M365Agent' tag"
+Write-Host "  2. App Registrations > $AgentName > should show 'M365AgentIdentity' tag"
+Write-Host "  3. Both should appear in Agent 365 admin views within a few minutes"

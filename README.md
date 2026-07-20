@@ -30,24 +30,38 @@ agent365-registration-starter/
 
 ### 1. Register Entra Agent ID Objects
 
-Run the registration script to create Blueprint + Agent Identity + FIC in your tenant:
+Run the registration script to create and configure all Agent 365 Entra objects:
 
 ```bash
-# Set your tenant and App Service Managed Identity object ID
+# Set your tenant and Managed Identity object ID
 export TENANT_ID="your-tenant-id"
-export APP_SERVICE_MI_OBJECT_ID="your-app-service-mi-object-id"
+export APP_SERVICE_MI_OBJECT_ID="your-app-service-mi-object-id"  # or UAMI client ID for AKS
 export AGENT_NAME="my-langchain-agent"
 
-# Run registration
+# Run registration (6 steps)
 bash scripts/register_agent_identity.sh
 ```
 
-The script creates 3 Entra objects:
-| Object | Purpose |
-|--------|---------|
-| **Blueprint** | App registration that holds the FIC (trust anchor) |
-| **Agent Identity** | App registration whose `sub` claim appears in audit logs |
-| **FIC** | Federated Identity Credential binding App Service MI → Blueprint |
+The script performs 6 steps:
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Create Blueprint app registration | Trust anchor that holds the FIC |
+| 2 | Create Agent Identity app registration | Runtime identity (sub claim in audit logs) |
+| 3 | **Configure Blueprint for Agent 365** | Sets `api://<id>` URI, exposes API scope, adds `M365Agent` tag |
+| 4 | **Configure Agent Identity for Agent 365** | Sets `api://<id>` URI, pre-authorizes Blueprint, adds `M365AgentIdentity` tag, grants Microsoft Agent Service permission |
+| 5 | Create FIC | Binds MI → Blueprint with correct audience (`api://<blueprint-id>`) |
+| 6 | Admin consent | Grants consent on Agent Identity permissions |
+
+> **Important:** Steps 3–4 are what make the app registrations appear in Agent 365 admin views (Blueprint and Identity sections). Without these steps, the registrations exist in Entra but are not recognized by Agent 365.
+
+> **Alternative:** If you prefer a GUI-based approach, use [Teams Toolkit CLI](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/teams-toolkit-cli):
+> ```bash
+> npm install -g @microsoft/teamsapp-cli
+> teamsapp init --capability declarative-agent
+> teamsapp provision --env dev
+> ```
+> This handles all tagging and configuration automatically.
 
 ### 2. Configure Environment
 
@@ -140,6 +154,63 @@ To make your agent discoverable in Teams / M365 Copilot:
 | Agent ID Developer | Developer | Create agent identities under existing blueprints |
 | Application Developer | Developer | Create app registrations |
 
+## Troubleshooting
+
+### App registrations not appearing in Agent 365 admin views
+
+**Symptom:** You ran the registration script but the Blueprint/Identity don't show up in the Agent 365 portal.
+
+**Causes and fixes:**
+
+| Cause | Fix |
+|-------|-----|
+| Missing `M365Agent` / `M365AgentIdentity` tags | Re-run steps 3–4 of the script, or manually add tags via Graph Explorer |
+| No `identifierUris` set | Run `az ad app update --id <APP_ID> --identifier-uris "api://<APP_ID>"` |
+| Blueprint doesn't expose an API scope | Check `api.oauth2PermissionScopes` in the Blueprint's manifest |
+| Agent Identity not pre-authorized | Verify `api.preAuthorizedApplications` includes the Blueprint app ID |
+| Propagation delay | Wait 5–10 minutes; Entra changes can take time to propagate to Agent 365 |
+| Insufficient permissions | Ensure you have Application Administrator or Cloud Application Administrator role |
+
+**Verify tags via CLI:**
+```bash
+# Check Blueprint tags
+az ad app show --id $BLUEPRINT_APP_ID --query tags
+
+# Check Agent Identity tags
+az ad app show --id $AGENT_APP_ID --query tags
+
+# Expected output for Blueprint: ["WindowsAzureActiveDirectoryIntegratedApp", "M365Agent"]
+# Expected output for Identity:  ["WindowsAzureActiveDirectoryIntegratedApp", "M365AgentIdentity"]
+```
+
+**Verify identifier URIs:**
+```bash
+az ad app show --id $BLUEPRINT_APP_ID --query identifierUris
+# Expected: ["api://<blueprint-app-id>"]
+```
+
+**Verify exposed API scope:**
+```bash
+az ad app show --id $BLUEPRINT_APP_ID --query "api.oauth2PermissionScopes[].value"
+# Expected: ["access_as_agent"]
+```
+
+### FIC audience mismatch
+
+**Symptom:** Token exchange fails with "AADSTS700024: Client assertion audience claim does not match."
+
+**Fix:** The FIC audience must be `api://<BLUEPRINT_APP_ID>` (not `api://AzureADTokenExchange` for Agent 365 scenarios):
+```bash
+# Delete old FIC and recreate with correct audience
+az ad app federated-credential delete --id $BLUEPRINT_APP_ID --federated-credential-id <fic-id>
+az ad app federated-credential create --id $BLUEPRINT_APP_ID --parameters '{
+  "name": "agent365-fic",
+  "issuer": "https://login.microsoftonline.com/<TENANT_ID>/v2.0",
+  "subject": "<MI_OBJECT_ID>",
+  "audiences": ["api://<BLUEPRINT_APP_ID>"]
+}'
+```
+
 ## References
 
 - [Agent 365 SDK Developer Guide](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/agent-365-sdk)
@@ -147,3 +218,4 @@ To make your agent discoverable in Teams / M365 Copilot:
 - [Declarative Agent Schema v1.7](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.7)
 - [API Plugin Schema v2.2](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/api-plugin-manifest)
 - [Entra Workload Identity Federation](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation)
+- [Teams Toolkit CLI](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/teams-toolkit-cli)
