@@ -252,12 +252,20 @@ az ad app update --id "$AGENT_APP_ID" --identifier-uris "api://$AGENT_APP_ID" --
 # Get object ID
 AGENT_OBJECT_ID=$(az ad app show --id "$AGENT_APP_ID" --query id -o tsv | tr -d '\r')
 
+# Get existing tags and merge (preserve M365Agent if this app is also the Blueprint)
+EXISTING_TAGS=$(az ad app show --id "$AGENT_APP_ID" --query "tags" -o json 2>/dev/null | tr -d '\r')
+if echo "$EXISTING_TAGS" | grep -q "M365Agent"; then
+  AGENT_TAGS="[\"WindowsAzureActiveDirectoryIntegratedApp\", \"M365Agent\", \"M365AgentIdentity\"]"
+else
+  AGENT_TAGS="[\"WindowsAzureActiveDirectoryIntegratedApp\", \"M365AgentIdentity\"]"
+fi
+
 # Tag + pre-authorize Blueprint
 az rest --method PATCH \
   --uri "https://graph.microsoft.com/v1.0/applications/$AGENT_OBJECT_ID" \
   --headers "Content-Type=application/json" \
   --body "{
-    \"tags\": [\"WindowsAzureActiveDirectoryIntegratedApp\", \"M365AgentIdentity\"],
+    \"tags\": $AGENT_TAGS,
     \"api\": {
       \"preAuthorizedApplications\": [{
         \"appId\": \"$BLUEPRINT_APP_ID\",
