@@ -274,11 +274,14 @@ az rest --method PATCH \
     }
   }" --only-show-errors
 
-# Add Microsoft Agent Service permission
-az ad app permission add --id "$AGENT_APP_ID" \
-  --api "48ac35b8-9aa8-4d74-927d-1f4a14a0b239" \
-  --api-permissions "bf512614-4309-43bc-a7b5-a3b3460e4a4b=Scope" \
-  --only-show-errors 2>/dev/null || true
+# Add Microsoft Agent Service permission (only if not already present)
+EXISTING_PERMS=$(az ad app show --id "$AGENT_APP_ID" --query "requiredResourceAccess[?resourceAppId=='48ac35b8-9aa8-4d74-927d-1f4a14a0b239'].resourceAccess[].id" -o tsv 2>/dev/null | tr -d '\r')
+if [[ -z "$EXISTING_PERMS" || "$EXISTING_PERMS" == "None" ]]; then
+  az ad app permission add --id "$AGENT_APP_ID" \
+    --api "48ac35b8-9aa8-4d74-927d-1f4a14a0b239" \
+    --api-permissions "bf512614-4309-43bc-a7b5-a3b3460e4a4b=Scope" \
+    --only-show-errors 2>/dev/null || true
+fi
 
 # Admin consent
 az ad app permission admin-consent --id "$AGENT_APP_ID" --only-show-errors 2>/dev/null || \
