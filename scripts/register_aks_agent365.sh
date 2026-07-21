@@ -256,8 +256,8 @@ az ad app update --id "$AGENT_APP_ID" --identifier-uris "api://$AGENT_APP_ID" --
 AGENT_OBJECT_ID=$(az ad app show --id "$AGENT_APP_ID" --query id -o tsv | tr -d '\r')
 
 # Get existing tags and merge (preserve M365Agent if this app is also the Blueprint)
-EXISTING_TAGS=$(az ad app show --id "$AGENT_APP_ID" --query "tags" -o json 2>/dev/null | tr -d '\r')
-if echo "$EXISTING_TAGS" | grep -q "M365Agent"; then
+EXISTING_TAGS=$(az ad app show --id "$AGENT_APP_ID" --query "tags[?@ == 'M365Agent'] | [0]" -o tsv 2>/dev/null | tr -d '\r')
+if [[ "$EXISTING_TAGS" == "M365Agent" ]]; then
   AGENT_TAGS="[\"WindowsAzureActiveDirectoryIntegratedApp\", \"M365Agent\", \"M365AgentIdentity\"]"
 else
   AGENT_TAGS="[\"WindowsAzureActiveDirectoryIntegratedApp\", \"M365AgentIdentity\"]"
