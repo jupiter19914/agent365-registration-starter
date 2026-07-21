@@ -196,8 +196,11 @@ BLUEPRINT_OBJECT_ID=$(az ad app show --id "$BLUEPRINT_APP_ID" --query id -o tsv 
 EXISTING_SCOPE=$(az ad app show --id "$BLUEPRINT_APP_ID" --query "api.oauth2PermissionScopes[?value=='access_as_agent'].id | [0]" -o tsv 2>/dev/null | tr -d '\r')
 
 if [[ -z "$EXISTING_SCOPE" || "$EXISTING_SCOPE" == "None" ]]; then
-  # Generate scope ID
-  SCOPE_ID=$(python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+  # Generate scope ID (try python3, python, /proc, then powershell as fallback)
+  SCOPE_ID=$(python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null \
+    || python -c "import uuid; print(uuid.uuid4())" 2>/dev/null \
+    || cat /proc/sys/kernel/random/uuid 2>/dev/null \
+    || powershell.exe -NoProfile -Command "[guid]::NewGuid().ToString()" 2>/dev/null | tr -d '\r')
 
   # Expose API scope + add Agent 365 tags
   az rest --method PATCH \
