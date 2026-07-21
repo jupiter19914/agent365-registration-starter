@@ -173,7 +173,7 @@ echo "Step 3/6 ▸ Creating and configuring Blueprint app registration"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check if Blueprint already exists
-BLUEPRINT_APP_ID=$(az ad app list --display-name "$BLUEPRINT_NAME" --query "[0].appId" -o tsv 2>/dev/null | tr -d '\r' || echo "")
+BLUEPRINT_APP_ID=$(az ad app list --display-name "$BLUEPRINT_NAME" --query "[?displayName=='$BLUEPRINT_NAME'].appId | [0]" -o tsv 2>/dev/null | tr -d '\r' || echo "")
 
 if [[ -z "$BLUEPRINT_APP_ID" || "$BLUEPRINT_APP_ID" == "None" ]]; then
   BLUEPRINT_APP_ID=$(az ad app create \
@@ -235,8 +235,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Step 4/6 ▸ Creating and configuring Agent Identity app registration"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Check if Agent Identity already exists
-AGENT_APP_ID=$(az ad app list --display-name "$AGENT_NAME" --query "[0].appId" -o tsv 2>/dev/null | tr -d '\r' || echo "")
+# Check if Agent Identity already exists (exact match only)
+AGENT_APP_ID=$(az ad app list --display-name "$AGENT_NAME" --query "[?displayName=='$AGENT_NAME'].appId | [0]" -o tsv 2>/dev/null | tr -d '\r' || echo "")
 
 if [[ -z "$AGENT_APP_ID" || "$AGENT_APP_ID" == "None" ]]; then
   AGENT_APP_ID=$(az ad app create \
