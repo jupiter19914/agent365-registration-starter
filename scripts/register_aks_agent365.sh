@@ -268,10 +268,17 @@ az rest --method PATCH \
   --uri "https://graph.microsoft.com/v1.0/applications/$AGENT_OBJECT_ID" \
   --headers "Content-Type=application/json" \
   --body "{
-    \"tags\": $AGENT_TAGS,
+    \"tags\": $AGENT_TAGS
+  }" --only-show-errors
+
+# Pre-authorize Agent Identity on the BLUEPRINT (Blueprint owns the scope)
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$BLUEPRINT_OBJECT_ID" \
+  --headers "Content-Type=application/json" \
+  --body "{
     \"api\": {
       \"preAuthorizedApplications\": [{
-        \"appId\": \"$BLUEPRINT_APP_ID\",
+        \"appId\": \"$AGENT_APP_ID\",
         \"delegatedPermissionIds\": [\"$SCOPE_ID\"]
       }]
     }
