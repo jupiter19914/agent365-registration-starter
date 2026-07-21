@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-payment-agent-config
+  namespace: agent365
+data:
+  BLUEPRINT_APP_ID: "9ef66b1f-f9d2-44b7-b091-25681af275cd"
+  AZURE_TENANT_ID: "ba02c035-b0b0-4166-bd58-8f955dc3a2b5"
+  SCOPE_URI: "api://9ef66b1f-f9d2-44b7-b091-25681af275cd/access_as_agent"
+  AGENT_NAMESPACE: "agent365"
+  PORT: "3978"
+  # M365 Agents SDK connection
+  CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID: "9ef66b1f-f9d2-44b7-b091-25681af275cd"
+  CONNECTIONS__SERVICE_CONNECTION__SETTINGS__TENANTID: "ba02c035-b0b0-4166-bd58-8f955dc3a2b5"
+  # Azure OpenAI (update endpoint for your deployment)
+  AZURE_OPENAI_DEPLOYMENT: "gpt-4o"
+  AZURE_OPENAI_API_VERSION: "2024-10-21"
+  # LangSmith tracing (set API key in a K8s Secret, not ConfigMap)
+  # LANGSMITH_PROJECT: "nfcu-payment-agent"
+  # LANGCHAIN_TRACING_V2: "true"

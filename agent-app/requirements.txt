@@ -1,0 +1,10 @@
+microsoft-agents-hosting-aiohttp>=0.1.0
+microsoft-agents-hosting-core>=0.1.0
+microsoft-agents-activity>=0.1.0
+microsoft-agents-authentication-msal>=0.1.0
+langchain>=0.3.0
+langchain-openai>=0.3.0
+langgraph>=0.3.0
+langsmith>=0.2.0
+python-dotenv>=1.0.0
+aiohttp>=3.9.0
